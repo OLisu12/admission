@@ -1,3 +1,4 @@
+from doctest import register_optionflag
 from pathlib import Path
 import pandas as pd
 import re
@@ -610,3 +611,267 @@ def evaluate_university_row(row, scores):
         "탐구적합도":
             check_inquiry_fit(scores, major_group)
     })
+
+def safe_number(value):
+    if value is None:
+        return None
+    if pd.isna(value):
+        return None
+
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+def calculate_student_simple_average(scores):
+    return (
+        scores["국어"] + scores["수학"] + scores["탐구1"] + scores["탐구2"]
+    ) / 4
+
+def calculate_university_reference_score(row, weights):
+    korean = safe_number(row.get("국어70"))
+    math = safe_number(row.get("수학70"))
+    inquiry1 = safe_number(row.get("탐구1_70"))
+    inquiry2 = safe_number(row.get("탐구2_70"))
+
+    if all(value is not None for value in [korean, math, inquiry1, inquiry2]):
+        university_scores = {"국어":korean, "수학":math, "탐구1":inquiry1, "탐구2":inquiry2}
+
+        weighted_score = calculate_wheighted_score(university_scores, weights)
+
+        return (weighted_score, "과목별 70% 가중평균")
+
+    recommended_score = safe_number(row.get("추천기준_백분위"))
+
+    if recommended_score is not None:
+        indicator_type = row.get("추천지표유형", "추천기준 백분위")
+
+        if pd.isna(indicator_type):
+            indicator_type("추천기준 백분위")
+
+        return (recommended_score, str(indicator_type))
+
+    return (None, "자료부족")
+
+def classify_recommedation(student_score, university_score):
+    difference = (student_score - university_score)
+
+    if difference < -8:
+        return "매우상향"
+
+    elif difference < -4:
+        return "조금상향"
+
+    elif difference <= 2:
+        return "매우적정"
+
+    elif difference <= 5:
+        return "적정"
+
+    elif difference <= 8:
+        return "안정"
+
+    else: return "하향"
+
+def calculate_major_match (university_major, desired_major):
+    if not desired_major:
+        return 0
+
+    university_text = (normalize_text(university_major))
+
+    desired_major = (normalize_text(desired_major))
+
+    if desired_major in university_text or university_text in desired_major:
+        return 3
+
+    keywords = get_major_keywords(desired_major)
+
+    for keyword in keywords:
+        if keyword in university_text:
+            return 2
+
+    desired_group = (infer_major_group(desired_major))
+
+    university_group = (infer_major_group(university_major))
+
+    if (desired_group == university_group and desired_group != "기타"):
+        return 1
+
+    return 0
+
+def major_match_text(match_score):
+    if match_score == 3:
+        return "직접관련"
+    elif match_score == 2:
+        return "유사학과"
+    elif match_score == 1:
+        return "같은계열"
+    else: return "다른계열"
+
+def evulate_university_row(row, scores):
+    major_group = infer_major_group(row["모집단위"])
+
+    weights = MAJOR_WEIGHTS[major_group]
+
+    student_values = {"국어": scores["국어"], "수학": scores["수학"], "탐구1": scores["탐구1"], "탐구2": scores["탐구2"]}
+
+    student_weighted_score = calculate_wheighted_score(student_values, weights)
+    university_score, score_type = calculate_university_reference_score(row, weights)
+
+    if university_score is None:
+        return pd.Series({
+            "학과계열": major_group,
+            "학생비교점수":None,
+            "점수차":None,
+            "학생환산등급":None,
+            "대학환산등급":None,
+            "추천유형":"자료부족",
+            "세부판정":"자료부족",
+            "입결기준유형": score_type,
+            "탐구적합도":check_inquiry_fit(scores, major_group),
+            "학과일치점수": 0,
+            "학과일치도": "자료부족"
+        })
+
+    if score_type == "과목별 70% 가중평균":
+        student_compare_score = student_weighted_score
+
+    else: student_compare_score = calculate_student_simple_average(scores)
+
+    score_difference = student_compare_score- university_score
+    recommendation = classify_recommedation(student_compare_score, university_score)
+    student_grade = percentile_to_grade(student_compare_score)
+    university_grade = percentile_to_grade(university_score)
+    major_match = calculate_major_match(row["모집단위"], scores["희망학과"])
+
+    return pd.Series({
+        "학과계열": major_group,
+        "학생비교점수": round(student_weighted_score, 2),
+        "대학비교입결": round(university_score, 2),
+        "점수차": round(score_difference, 2),
+        "학생환산등급": student_grade,
+        "대학환산등급": recommendation,
+        "추천유형": recommendation,
+        "입결기준유형": score_type,
+        "탐구적합도": check_inquiry_fit(scores, major_group),
+        "학과일치점수": major_match,
+        "학과일치도": university_text(major_match)
+    })
+
+def check_grade_subject(student_grade, university_grade):
+    if university_grade is None:
+        return "자료없음"
+    if pd.isna(university_grade):
+        return "자료없음"
+
+    try:
+        university_grade = float(university_grade)
+        student_grade = float(student_grade)
+
+    except (ValueError, TypeError):
+        return "자료없음"
+
+    difference = student_grade - university_grade
+
+    if difference <= 0:
+        return "양호"
+    elif difference <= 1:
+        return "주의"
+    else: return "불리"
+
+def recommend_universities(df, scores):
+    df = df.copy
+    evaluation = df.apply(lambda row: evulate_university_row(row, scores), axis=1)
+
+    df = pd.concat([df, evaluation], axis=1)
+
+    df = df[df["추천유형"] != "자료부족"].copy()
+
+    df["영어판정"] = df["영어70_등급"].apply(lambda grade: check_grade_subject(scores["영어"],grade))
+    df["한국사판정"] = df["한국사70_등급"].apply(lambda grade: check_grade_subject(scores["한국사"], grade))
+    df["절대점수차"] = df["점수차"].abs()
+    inquiry_scores = {"높음": 3, "보통": 2, "별도확인": 1, "대학별 허용조건확인": 0},
+    df["탐구적합도점수"] = df["탐구적합도"].map(inquiry_scores).fillna(0)
+    df["추천우선순위"] = df["학과일치점수"] * 8 + df["탐구적합점수"] + df["대학비교입결"] * 0.10 - df["절대점수차"] * 1.5
+    df = df.sort_values(by = ["추천우선순위", "대학비교입결"], ascending = [False, False])
+    return df
+
+def split_recommendations(df):
+    upward = df[df["추천유형"] == "상향"].copy()
+
+    appropriate = df[df["추천유형"] == "적정"].copy()
+
+    downward = df[df["추천유형"] == "하햫"].copy()
+
+    return (upward, appropriate, downward)
+
+def diversify_universities(df, limit=30, max_per_university=3):
+    if df.empty:
+        return df.copy()
+
+    selected_rows = []
+    university_counts = {}
+
+    for index, row in df.iterrows():
+        university = row["대학명"]
+
+        current_count = university_counts.get(university, 0)
+
+        if current_count >= max_per_university:
+            continue
+
+        selected_rows.append(index)
+
+        university_counts[university] = current_count + 1
+
+        if len(selected_rows) >= limit:
+            break
+
+    return df.loc[selected_rows].copy()
+
+def get_top_commendations(df,limit=30):
+    if df.empty:
+        return df.copy()
+
+    top = df.sort_values(by=["대학비교입결", "하고가일치점수"], ascending = [False, False])
+
+    top = diversify_universities(top, limit=limit, max_per_university=3)
+
+    return top
+
+def print_recommendations(title, data, limit=30):
+    print()
+    print("="*150)
+    print(title)
+    print("="*150)
+    if data.empty:
+        print("해당추천결과가 없습니다.")
+        return
+    print(f"추천 모집단위:" f"{len(data)}개")
+    print()
+
+    columns = [
+        "지역", "대학명", "모집군", "모집단위", "학과계열", "학과일치도", "학교비교점수",
+    "대학비교입결", "점수차", "추천유형", "세부판정", "입결기준유형", "탐구적합도",
+    "영어판정", "취약과목", "경쟁률"
+    ]
+
+    existing_columns = [column for column in columns if data.column]
+
+    print(data[existing_columns].head(limit).to_string(index=False))
+
+def print_recommendation_summary(upward, appropriate, downward):
+    print()
+    print("="*65)
+    print("추천결과요약")
+    print("="*65)
+
+    print(f"상향: " f"{len(upward)}개")
+    print(f"적정: " f"{len(appropriate)}개")
+    print(f"하햫: " f"{len(downward)}개")
+
+    print("-"*65)
+
+    print("전체 : " f"{len(upward) + len(appropriate) + len(downward)}")
+
+    
