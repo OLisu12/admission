@@ -1,5 +1,3 @@
-from doctest import register_optionflag
-from enum import CONTINUOUS
 from pathlib import Path
 import pandas as pd
 import re
