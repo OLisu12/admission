@@ -150,6 +150,112 @@ MAJOR_SEARCH_GROUPS = {
     ]
 }
 
+REGION_ALIASES = {
+ "서울": "서울특별시",
+ "서울특별시": "서울특별시",
+
+
+
+
+ "경기": "경기도",
+ "경기도": "경기도",
+
+
+
+
+ "인천": "인천광역시",
+ "인천광역시": "인천광역시",
+
+
+
+
+ "대전": "대전광역시",
+ "대전광역시": "대전광역시",
+
+
+
+
+ "광주": "광주광역시",
+ "광주광역시": "광주광역시",
+
+
+
+
+ "대구": "대구광역시",
+ "대구광역시": "대구광역시",
+
+
+
+
+ "부산": "부산광역시",
+ "부산광역시": "부산광역시",
+
+
+
+
+ "울산": "울산광역시",
+ "울산광역시": "울산광역시",
+
+
+
+
+ "세종": "세종특별자치시",
+ "세종특별자치시": "세종특별자치시",
+
+
+
+
+ "강원": "강원특별자치도",
+ "강원특별자치도": "강원특별자치도",
+
+
+
+
+ "충북": "충청북도",
+ "충청북도": "충청북도",
+
+
+
+
+ "충남": "충청남도",
+ "충청남도": "충청남도",
+
+
+
+
+ "전북": "전북특별자치도",
+ "전북특별자치도": "전북특별자치도",
+
+
+
+
+ "전남": "전라남도",
+ "전라남도": "전라남도",
+
+
+
+
+ "경북": "경상북도",
+ "경상북도": "경상북도",
+
+
+
+
+ "경남": "경상남도",
+ "경상남도": "경상남도",
+
+
+
+
+ "제주": "제주특별자치도",
+ "제주특별자치도": "제주특별자치도"
+}
+
+
+
+
+
+
 def normalize_text(text):
     if text is None:
         return ""
@@ -164,6 +270,17 @@ def normalize_text(text):
 
     return text
 
+def filter_by_region(
+     df,
+     region
+):
+ if region is None:
+     return df.copy()
+
+ return df[
+     df["지역"] == region
+ ].copy()
+
 def classify_inquiry_subject(subject):
     subject = normalize_text(subject)
 
@@ -176,6 +293,7 @@ def classify_inquiry_subject(subject):
             return "사탐"
 
     return "기타"
+
 
 def infer_major_group(major_name):
     name = normalize_text(major_name)
@@ -330,6 +448,7 @@ def get_major_keywords(
     # 등록되지 않은 학과
     return [desired]
 
+
 def input_percentile(subject):
     while True:
         try:
@@ -337,13 +456,14 @@ def input_percentile(subject):
                 input(f"{subject} 백분위 입력 (0~100): ")
             )
 
-            if 0<= score <= 100:
+            if 0 <= score <= 100:
                 return score
 
             print("input 0~100")
 
         except ValueError:
             print("숫자를 입력하시오.")
+
 
 def input_grade(subject):
     while True:
@@ -352,13 +472,14 @@ def input_grade(subject):
                 input(f"{subject} 등급입력 (1~9): ")
             )
 
-            if 1<= grade <= 9:
+            if 1 <= grade <= 9:
                 return grade
 
             print("input 1~9")
 
         except ValueError:
             print("정수를 입력하시오.")
+
 
 def input_student_scores():
     print()
@@ -404,6 +525,7 @@ def input_student_scores():
         "희망학과": desired_major
     }
 
+
 def calculate_wheighted_score(
         values,
         weight
@@ -428,6 +550,7 @@ def calculate_wheighted_score(
 
         return total_score / total_weight
 
+
 def calculate_university_cutoff(
         row,
         weights
@@ -449,8 +572,8 @@ def calculate_university_cutoff(
 
     return calculate_wheighted_score(university_score, weights)
 
-def check_inquiry_fit(scores, major_group):
 
+def check_inquiry_fit(scores, major_group):
     inquiry1_type = classify_inquiry_subject(scores["탐구1 과목"])
 
     inquiry2_type = classify_inquiry_subject(scores["탐구2 과목"])
@@ -483,11 +606,11 @@ def check_inquiry_fit(scores, major_group):
 
     return "별도 확인"
 
+
 def filter_by_desired_major(
         df,
         desired_major
 ):
-
     if not desired_major:
         return df.copy()
 
@@ -497,7 +620,7 @@ def filter_by_desired_major(
 
     def is_related(university_major):
 
-        major=normalize_text(university_major)
+        major = normalize_text(university_major)
         for keyword in keywords:
             if keywords in keywords:
                 return True
@@ -508,6 +631,16 @@ def filter_by_desired_major(
         df["모집단위"].apply(is_related)].copy
 
     return filtered
+
+def load_university_data():
+ if not EXCEL_FILE.exists():
+     raise FileNotFoundError(
+         "\n입결 Excel 파일을 찾을 수 없습니다.\n"
+         f"{EXCEL_FILE.name}\n\n"
+         "파이썬 파일과 Excel 파일을 같은 폴더에 넣으세요."
+     )
+
+
 
 def percentile_to_grade(percentile):
     if percentile >= 95:
@@ -528,6 +661,8 @@ def percentile_to_grade(percentile):
         return 8
     else:
         return 9
+
+
 def evaluate_university_row(row, scores):
     major_group = infer_major_group(row["모집단위"])
 
@@ -613,6 +748,7 @@ def evaluate_university_row(row, scores):
             check_inquiry_fit(scores, major_group)
     })
 
+
 def safe_number(value):
     if value is None:
         return None
@@ -624,10 +760,12 @@ def safe_number(value):
     except (ValueError, TypeError):
         return None
 
+
 def calculate_student_simple_average(scores):
     return (
-        scores["국어"] + scores["수학"] + scores["탐구1"] + scores["탐구2"]
+            scores["국어"] + scores["수학"] + scores["탐구1"] + scores["탐구2"]
     ) / 4
+
 
 def calculate_university_reference_score(row, weights):
     korean = safe_number(row.get("국어70"))
@@ -636,7 +774,7 @@ def calculate_university_reference_score(row, weights):
     inquiry2 = safe_number(row.get("탐구2_70"))
 
     if all(value is not None for value in [korean, math, inquiry1, inquiry2]):
-        university_scores = {"국어":korean, "수학":math, "탐구1":inquiry1, "탐구2":inquiry2}
+        university_scores = {"국어": korean, "수학": math, "탐구1": inquiry1, "탐구2": inquiry2}
 
         weighted_score = calculate_wheighted_score(university_scores, weights)
 
@@ -653,6 +791,7 @@ def calculate_university_reference_score(row, weights):
         return (recommended_score, str(indicator_type))
 
     return (None, "자료부족")
+
 
 def classify_recommedation(student_score, university_score):
     difference = (student_score - university_score)
@@ -672,9 +811,11 @@ def classify_recommedation(student_score, university_score):
     elif difference <= 8:
         return "안정"
 
-    else: return "하향"
+    else:
+        return "하향"
 
-def calculate_major_match (university_major, desired_major):
+
+def calculate_major_match(university_major, desired_major):
     if not desired_major:
         return 0
 
@@ -700,6 +841,7 @@ def calculate_major_match (university_major, desired_major):
 
     return 0
 
+
 def major_match_text(match_score):
     if match_score == 3:
         return "직접관련"
@@ -707,7 +849,9 @@ def major_match_text(match_score):
         return "유사학과"
     elif match_score == 1:
         return "같은계열"
-    else: return "다른계열"
+    else:
+        return "다른계열"
+
 
 def evaluate_university_row(row, scores):
     major_group = infer_major_group(row["모집단위"])
@@ -722,14 +866,14 @@ def evaluate_university_row(row, scores):
     if university_score is None:
         return pd.Series({
             "학과계열": major_group,
-            "학생비교점수":None,
-            "점수차":None,
-            "학생환산등급":None,
-            "대학환산등급":None,
-            "추천유형":"자료부족",
-            "세부판정":"자료부족",
+            "학생비교점수": None,
+            "점수차": None,
+            "학생환산등급": None,
+            "대학환산등급": None,
+            "추천유형": "자료부족",
+            "세부판정": "자료부족",
             "입결기준유형": score_type,
-            "탐구적합도":check_inquiry_fit(scores, major_group),
+            "탐구적합도": check_inquiry_fit(scores, major_group),
             "학과일치점수": 0,
             "학과일치도": "자료부족"
         })
@@ -737,9 +881,10 @@ def evaluate_university_row(row, scores):
     if score_type == "과목별 70% 가중평균":
         student_compare_score = student_weighted_score
 
-    else: student_compare_score = calculate_student_simple_average(scores)
+    else:
+        student_compare_score = calculate_student_simple_average(scores)
 
-    score_difference = student_compare_score- university_score
+    score_difference = student_compare_score - university_score
     recommendation = classify_recommedation(student_compare_score, university_score)
     student_grade = percentile_to_grade(student_compare_score)
     university_grade = percentile_to_grade(university_score)
@@ -758,6 +903,7 @@ def evaluate_university_row(row, scores):
         "학과일치점수": major_match,
         "학과일치도": major_match_text(major_match)
     })
+
 
 def check_grade_subject(student_grade, university_grade):
     if university_grade is None:
@@ -778,7 +924,9 @@ def check_grade_subject(student_grade, university_grade):
         return "양호"
     elif difference <= 1:
         return "주의"
-    else: return "불리"
+    else:
+        return "불리"
+
 
 def recommend_universities(df, scores):
     conflict_columns = [
@@ -822,16 +970,17 @@ def recommend_universities(df, scores):
 
     evaluation = df.apply(lambda row: evaluate_university_row(row, scores), axis=1)
     result = pd.concat([df.reset_index(drop=True), evaluation.reset_index(drop=True)], axis=1)
-    result = result[result["추천유형"]!="자료부족"].copy()
-    result["영어판정"] = (result["영어70_등급"].apply(lambda grade: check_grade_subject(scores["영어"],grade)))
+    result = result[result["추천유형"] != "자료부족"].copy()
+    result["영어판정"] = (result["영어70_등급"].apply(lambda grade: check_grade_subject(scores["영어"], grade)))
     result["한국사판정"] = (result["한국사70_등급"].apply(lambda grade: check_grade_subject(scores["한국사"], grade)))
     result["취약과목"] = (result.apply(lambda row: check_weak_subject(row, scores), axis=1))
     result["절대점수차"] = result["점수차"].abs()
     inquiry_scores = {"높음": 3, "보통": 2, "별도확인": 1, "대학별 허용조건 확인": 0, "허용조건 확인": 0}
     result["탐구적합점수"] = result["탐구적합도"].map(inquiry_scores).fillna(0)
-    result["추천우선순위"] = result["학과일치점수"]*10 + result["탐구적합점수"]*1+result["대학비교입결"]*0.15-result["절대점수차"]*1.2
+    result["추천우선순위"] = result["학과일치점수"] * 10 + result["탐구적합점수"] * 1 + result["대학비교입결"] * 0.15 - result["절대점수차"] * 1.2
     result = result.sort_values(by=["추천우선순위", "대학비교입결"], ascending=[False, False])
     return result
+
 
 def check_weak_subject(row, scores):
     comparisons = [
@@ -842,7 +991,7 @@ def check_weak_subject(row, scores):
     ]
     warnings = []
 
-    for(subject, student_score, cutoff) in comparisons:
+    for (subject, student_score, cutoff) in comparisons:
         cutoff = safe_number(cutoff)
         if cutoff is None:
             continue
@@ -856,6 +1005,7 @@ def check_weak_subject(row, scores):
 
     return "없음"
 
+
 def split_recommendations(df):
     upward = df[df["추천유형"] == "상향"].copy()
 
@@ -864,6 +1014,7 @@ def split_recommendations(df):
     downward = df[df["추천유형"] == "하햫"].copy()
 
     return (upward, appropriate, downward)
+
 
 def diversify_universities(df, limit=30, max_per_university=3):
     if df.empty:
@@ -889,21 +1040,23 @@ def diversify_universities(df, limit=30, max_per_university=3):
 
     return df.loc[selected_rows].copy()
 
-def get_top_commendations(df,limit=30):
+
+def get_top_recommendations(df, limit=30):
     if df.empty:
         return df.copy()
 
-    top = df.sort_values(by=["대학비교입결", "하고가일치점수"], ascending = [False, False])
+    top = df.sort_values(by=["대학비교입결", "하고가일치점수"], ascending=[False, False])
 
     top = diversify_universities(top, limit=limit, max_per_university=3)
 
     return top
 
+
 def print_recommendations(title, data, limit=30):
     print()
-    print("="*150)
+    print("=" * 150)
     print(title)
-    print("="*150)
+    print("=" * 150)
     if data.empty:
         print("해당추천결과가 없습니다.")
         return
@@ -912,26 +1065,28 @@ def print_recommendations(title, data, limit=30):
 
     columns = [
         "지역", "대학명", "모집군", "모집단위", "학과계열", "학과일치도", "학교비교점수",
-    "대학비교입결", "점수차", "추천유형", "세부판정", "입결기준유형", "탐구적합도",
-    "영어판정", "취약과목", "경쟁률"
+        "대학비교입결", "점수차", "추천유형", "세부판정", "입결기준유형", "탐구적합도",
+        "영어판정", "취약과목", "경쟁률"
     ]
 
     existing_columns = [column for column in columns if data.column]
 
     print(data[existing_columns].head(limit).to_string(index=False))
 
+
 def print_recommendation_summary(upward, appropriate, downward):
     print()
-    print("="*65)
+    print("=" * 65)
     print("추천결과요약")
-    print("="*65)
+    print("=" * 65)
 
     print(f"상향: " f"{len(upward)}개")
     print(f"적정: " f"{len(appropriate)}개")
     print(f"하햫: " f"{len(downward)}개")
 
-    print("-"*65)
+    print("-" * 65)
     print("전체 : " f"{len(upward) + len(appropriate) + len(downward)}")
+
 
 INQUIRY_SUBJECT = [
     "물리학1",
@@ -955,8 +1110,12 @@ INQUIRY_SUBJECT = [
 
 REGION_CHOICES = [
     "전체", "서울", "경기", "인천", "대전", "광주", "대구", "부산", "울산", "세종", "강원",
-    "충북", "충남" ,"전북", "전남", "경북", "경남", "제주"
+    "충북", "충남", "전북", "전남", "경북", "경남", "제주"
 ]
+
+GUI_DISPLAY_LIMIT = 100
+GUI_MAX_PER_UNIVERSITY = 5
+
 class UniversityRecommendationGUI:
     def __init__(self, root):
         self.root = root
@@ -971,7 +1130,7 @@ class UniversityRecommendationGUI:
         self.downward_results = None
         self.last_scores = None
         self.last_region = "전체"
-        self.tress = {}
+        self.trees = {}
         self.create_widgets()
         self.load_data_at_start()
 
@@ -979,13 +1138,12 @@ class UniversityRecommendationGUI:
         main_frame = tk.Frame(self.root, padding=15)
 
         main_frame.pack(fill="both", expand=True)
-        title_label = ttk.label(main_frame, text="정시대학추천시스템", font=("Arial",22,"bold"))
+        title_label = ttk.label(main_frame, text="정시대학추천시스템", font=("Arial", 22, "bold"))
         title_label.pack(anchor="w")
 
         description_label = ttk.Label(
             main_frame, text=("모의고사 백분위와 탐구과목, 희망학과, 지역을 입력하면"
                               "전년도 정시입결 기준으로 대학교를 추천합니다."))
-
 
         description_label.pack(anchor="w", pady=(5, 15))
 
@@ -996,7 +1154,7 @@ class UniversityRecommendationGUI:
         input_frame = ttk.LabelFrame(top_frame, text="학생 성적입력", padding=12)
         input_frame.pack(fill="x", side="left", expand=True)
 
-        ttk.Label(input_frame,text="국어백분위").grid(row=0, column=0, padx=5, pady=5)
+        ttk.Label(input_frame, text="국어백분위").grid(row=0, column=0, padx=5, pady=5)
         self.korean_var = tk.StringVar()
         ttk.Entry(
             input_frame,
@@ -1015,13 +1173,12 @@ class UniversityRecommendationGUI:
         ttk.Label(input_frame, text="영어등급").grid(row=0, column=4, padx=5, pady=5)
         self.english_var = tk.StringVar()
         ttk.Combobox(input_frame, textvariable=self.english_var, values=list(
-            range(1, 10)),width=8, state="readonly").grid(row=0, column=5, padx=5, pady=5)
+            range(1, 10)), width=8, state="readonly").grid(row=0, column=5, padx=5, pady=5)
 
         ttk.Label(input_frame, text="한국사백분위").grid(row=0, column=6, padx=5, pady=5)
         self.history_var = tk.StringVar()
         ttk.Combobox(input_frame, textvariable=self.history_var, values=list(
             range(1, 10)), width=8, state="readonly").grid(row=0, column=7, padx=5, pady=5)
-
 
         ttk.Label(input_frame, text="탐구1 과목").grid(row=1, column=0, padx=5, pady=5)
         self.inquiry1_name_var = tk.StringVar()
@@ -1030,7 +1187,7 @@ class UniversityRecommendationGUI:
                      values=INQUIRY_SUBJECT,
                      width=14).grid(row=1, column=1, padx=5, pady=5)
 
-        ttk.Label(input_frame,text="탐구1 백분위").grid(row=1, column=2, padx=5, pady=5)
+        ttk.Label(input_frame, text="탐구1 백분위").grid(row=1, column=2, padx=5, pady=5)
         self.inquiry1_var = tk.StringVar()
         ttk.Entry(
             input_frame,
@@ -1087,19 +1244,19 @@ class UniversityRecommendationGUI:
             pady=5,
             sticky="ew"
         )
-        
+
         summary_frame = ttk.LabelFrame(top_frame, text="추천요약", padding=12)
         summary_frame.pack(fill="y", side="left", pady=(12, 0))
-        
+
         self.summary_var = tk.StringVar(value="입결데이터를 불러오는중 . . . . . ")
-        
+
         ttk.Label(summary_frame, textvariable=self.summary_var, justify="Left",
-                  font=("Arial",11,"bold")).pack(anchor="w")
-        
+                  font=("Arial", 11, "bold")).pack(anchor="w")
+
         self.notebook = ttk.Notebook(main_frame)
-        self.notebook.pack(fill="both", expand=True, pady=(15,0))
+        self.notebook.pack(fill="both", expand=True, pady=(15, 0))
         self.result_columns = [
-            "지역", 
+            "지역",
             "대학명",
             "모집군",
             "모집단위",
@@ -1117,7 +1274,7 @@ class UniversityRecommendationGUI:
             "취약과목",
             "경쟁률"
         ]
-        
+
         self.create_result_tab(
             "top",
             "상위권 추천"
@@ -1142,6 +1299,258 @@ class UniversityRecommendationGUI:
             "all",
             "전체"
         )
-        
-    def create_result_tab(self,key, title):
-        pass
+
+    def create_result_tab(self, key, title):
+        frame = ttk.Frame(self.notebook)
+        self.notebook.add(frame, text=title)
+        tree = ttk.Treeview(frame, columns=self.result_columns, show="headings")
+
+        y_scroll = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+        x_scroll = ttk.Scrollbar(frame, orient="horizontal", command=tree.xview)
+
+        tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
+        tree.grid(row=0, column=0, sticky="nsew")
+        y_scroll.grid(row=0, column=1, sticky="ns")
+        x_scroll.grid(row=1, column=0, sticky="ew")
+
+        frame.rowconfigure(0, weight=1)
+        frame.columnconfigure(0, weight=1)
+
+        column_widget = {
+            "지역" : 100,
+            "대학명" : 130,
+            "모집군" : 60,
+            "모집단위" : 220,
+            "학과계열" : 90,
+            "학과일치도" : 90,
+            "학생비교점수" : 100,
+            "대학비교입결" : 100,
+            "점수차" : 80,
+            "추천유형" : 75,
+            "세부판정" : 95,
+            "입결기준유형" : 130,
+            "탐구적합도" : 120,
+            "영어판정" : 80,
+            "한국사판정" : 90,
+            "취약과목" : 120,
+            "경쟁률" : 80
+        }
+
+        for column in self.result_columns:
+            tree.heading(column, text=column)
+            tree.column(column, width=column_widget.get(column, 100), anchor="center")
+
+        self.trees[key] = tree
+
+    def load_data_at_start(self):
+        try:
+            self.df = load_university_data
+            university_count = self.df["대학명"].nunique
+            self.summary_var.set(f"데이터 로드완료 \n"
+                                 f"대학{university_count}개\n"
+                                 f"성적을 입력한 뒤 \n"
+                                 f"'대학추천하기'를 누르시오.")
+        except Exception as error:
+            self.df = None
+            self.summary_var.set("입결 데이터 로드 실패")
+            messagebox.showerror("데이터 오류", str(error))
+
+    def get_student_scores(self):
+        try:
+            korean = float(self.korean_var.get())
+            math = float(self.math_var.get())
+            inquiry1 = float(self.inquiry1_var.get())
+            inquiry2 = float(self.inquiry2_var.get())
+
+        except ValueError:
+            raise ValueError("국어, 수학, 탐구 백분의를 모두 숫자로 입력해주세요.")
+
+        score_list = [
+            ("국어", korean),
+            ("수학", math),
+            ("탐구1", inquiry1),
+            ("탐구2", inquiry2)
+        ]
+
+        for subject, score in score_list:
+            if not 0 <= score <= 100:
+                raise ValueError(
+                    f"{subject} 백분위는 0~100 사이여야 합니다."
+                )
+
+        try:
+            english = int(self.english_var.get())
+            history = int(self.history_var.get())
+
+        except ValueError:
+            raise ValueError(
+                "영어와 한국사 등급을 선택하시오."
+            )
+
+        inquiry1_name = (
+            self.inquiry1_name_var.get().strip()
+        )
+        inquiry2_name = (
+            self.inquiry2_name_var.get().strip()
+        )
+
+        if inquiry1_name == "":
+            raise ValueError(
+                "탐구1 과목을 선택하거나 입력하시오."
+            )
+        if inquiry2_name == "":
+            raise ValueError(
+                "탐구2 과목을 선택하거나 입력하시오."
+            )
+
+        desired_major = (
+            self.major_var.get().strip()
+        )
+
+        if desired_major == "":
+            desired_major = None
+
+        return {
+            "국어" : korean,
+            "수학" : math,
+            "탐구1" : inquiry1,
+            "탐구2" : inquiry2,
+            "탐구1과목": inquiry1_name,
+            "탐구2과목": inquiry2_name,
+            "영어": english,
+            "한국사": history,
+            "희망학과" : desired_major
+        }
+    def run_recommendation(self):
+        if self.df is None:
+            messagebox.showerror(
+                "데이터 오류",
+                "대학 입결 데이터가 로드되지 않앗습니다."
+            )
+            return
+        try:
+            scores = (
+                self.get_student_scores()
+            )
+            region_selection = (
+                self.region_var.get().strip()
+            )
+            if (
+                region_selection == "" or region_selection == "전체"
+            ):
+                region_selection = None
+
+            else:
+                region = REGION_ALIASES.get(
+                    region_selection,
+                    region_selection
+                )
+
+            filtered_df = filter_by_region(
+                self.df,
+                region
+            )
+
+            if filtered_df.empty:
+                messagebox.showwarning(
+                    "지역 검색 결과",
+                    "선택한 지역의 대학 데이터가 없습니다."
+                )
+                return
+
+            result = recommend_universities(
+                filtered_df,
+                scores
+            )
+
+            if result.empty:
+                messagebox.showwarning(
+                    "추춴결과",
+                    "추천 가을한 모집단위가 없습니다."
+                )
+                return
+
+            (
+                upward,
+                appropriate,
+                downward
+            ) = split_recommendations(
+                result
+            )
+
+            top = get_top_recommendations(
+                result,
+                limit = 50
+            )
+
+            upward_display = diversify_universities(
+                upward,
+                limit=GUI_DISPLAY_LIMIT,
+                max_per_university=GUI_MAX_PER_UNIVERSITY
+                )
+            appropriate_display = diversify_universities(
+                appropriate,
+                limit=GUI_DISPLAY_LIMIT,
+                max_per_university=GUI_MAX_PER_UNIVERSITY
+            )
+            downward_display = diversify_universities(
+                downward,
+                limit=GUI_DISPLAY_LIMIT,
+                max_per_university=GUI_MAX_PER_UNIVERSITY
+            )
+
+            self.all_results = result
+            self.top_results = top
+            self.upward_results = upward
+            self.appropriate_results = appropriate
+            self.downward_results = downward
+            self.last_scores = scores
+            self.last_region = region_selection
+
+            self.fill_tree(
+                "top",
+                top
+            )
+
+            self.fill_tree(
+                "appropriate",
+                appropriate_display
+            )
+
+            self.fill_tree(
+                "downward",
+                downward_display
+            )
+
+            self.fill_tree(
+                "upward",
+                upward_display
+            )
+
+            self.fill_tree(
+                 "all",
+                 result.head(
+                     GUI_DISPLAY_LIMIT
+                 )
+            )
+
+            self.summary_var.set(
+                f"추천완료\n"
+                f"분석{len(filtered_df)}개\n\n"
+                f"상향{len(upward)}개\n\n"
+                f"적정{len(appropriate)}개\n\n"
+                f"하향{len(downward)}개\n\n"
+                f"전체{len(result)}개"
+            )
+
+            self.notebook.select(
+                0
+            )
+
+
+
+if __name__ == "__main__":
+    root = tk.Tk()
+    app = UniversityRecommendationGUI(root)
+    root.mainloop()
+
