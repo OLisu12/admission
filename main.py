@@ -5,8 +5,10 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 
 EXCEL_FILE = Path(__file__).resolve().with_name(
-    "전국대학_정시입결_공식통합_v1.xlsx"
+    "전국대학_정시입결_공식통합.xlsx"
 )
+
+SHEET_NAME = "정시입결_2025"
 
 SCIENCE_INQUIRY_KEYWORDS = {
     "물리",
@@ -313,9 +315,9 @@ def infer_major_group(major_name):
 
     for keyword in medical_keywords:
         if normalize_text(keyword) in name:
-            return "의학보건"
+            return "의약보건"
 
-    enjineering_keywords = [
+    engineering_keywords = [
         "컴퓨터",
         "소프트웨어",
         "인공지능",
@@ -340,7 +342,7 @@ def infer_major_group(major_name):
         "항공"
     ]
 
-    for keyword in enjineering_keywords:
+    for keyword in engineering_keywords:
         if normalize_text(keyword) in name:
             return "공학"
 
@@ -574,19 +576,14 @@ def calculate_university_cutoff(
 
 
 def check_inquiry_fit(scores, major_group):
-    inquiry1_type = classify_inquiry_subject(scores["탐구1 과목"])
-
-    inquiry2_type = classify_inquiry_subject(scores["탐구2 과목"])
+    # 수정: 키 이름을 "탐구1과목", "탐구2과목" (공백 없음)으로 일치시킴
+    inquiry1_type = classify_inquiry_subject(scores["탐구1과목"])
+    inquiry2_type = classify_inquiry_subject(scores["탐구2과목"])
 
     types = [inquiry1_type, inquiry2_type]
 
-    science_count = (
-        types.count("과탐")
-    )
-
-    social_count = (
-        types.count("사탐")
-    )
+    science_count = types.count("과탐")
+    social_count = types.count("사탐")
 
     if major_group in ["공학", "자연과학", "의약보건"]:
         if science_count == 2:
@@ -605,7 +602,6 @@ def check_inquiry_fit(scores, major_group):
             return "대학별 허용조건 확인"
 
     return "별도 확인"
-
 
 def filter_by_desired_major(
         df,
@@ -639,6 +635,115 @@ def load_university_data():
          f"{EXCEL_FILE.name}\n\n"
          "파이썬 파일과 Excel 파일을 같은 폴더에 넣으세요."
      )
+
+
+
+ df = pd.read_excel(
+     EXCEL_FILE,
+     sheet_name=SHEET_NAME
+ )
+
+
+
+
+
+
+
+
+ required_columns = [
+     "지역",
+     "대학명",
+     "모집군",
+     "모집단위",
+     "국어70",
+     "수학70",
+     "탐구1_70",
+     "탐구2_70",
+     "영어70_등급",
+     "한국사70_등급",
+     "경쟁률",
+     "추천기준_백분위"
+ ]
+
+
+
+
+
+
+
+
+ missing_columns = [
+     column for column in required_columns
+     if column not in df.columns
+ ]
+
+
+
+
+
+
+
+
+ if missing_columns:
+     raise ValueError(
+         "Excel 파일에 필요한 컬럼이 없습니다.\n"
+         f"누락 컬럼: {missing_columns}"
+     )
+
+
+
+
+
+
+
+
+ numeric_columns = [
+     "국어70",
+     "수학70",
+     "탐구1_70",
+     "탐구2_70",
+     "영어70_등급",
+     "한국사70_등급",
+     "경쟁률",
+     "추천기준_백분위"
+ ]
+
+
+
+
+
+
+
+
+ for column in numeric_columns:
+     df[column] = pd.to_numeric(
+         df[column],
+         errors="coerce"
+     )
+
+
+
+
+
+
+
+
+ df = df.dropna(
+     subset=[
+         "대학명",
+         "모집단위"
+     ]
+ ).copy()
+
+
+
+
+
+
+
+
+ return df
+
 
 
 
@@ -786,7 +891,7 @@ def calculate_university_reference_score(row, weights):
         indicator_type = row.get("추천지표유형", "추천기준 백분위")
 
         if pd.isna(indicator_type):
-            indicator_type("추천기준 백분위")
+            indicator_type = "추천기준 백분위"
 
         return (recommended_score, str(indicator_type))
 
@@ -933,52 +1038,51 @@ def recommend_universities(df, scores):
         "학생평균백분위",
         "점수차",
         "추천구간",
-
         "학과계열",
         "학생비교점수",
         "대학비교입결",
-
         "학생환산등급",
         "대학환산등급",
-
         "추천유형",
         "세부판정",
-
         "입결기준유형",
         "탐구적합도",
-
         "학과일치점수",
         "학과일치도",
-
         "영어판정",
         "한국사판정",
-
         "취약과목",
         "절대점수차",
         "탐구적합점수",
         "추천우선순위"
     ]
 
+    # 수정 1: 'not in'을 'in'으로 변경하여 실제 존재하는 열만 추출
     columns_to_drop = [
-        column for column in conflict_columns if column not in df.columns
+        column for column in conflict_columns if column in df.columns
     ]
 
+    # 수정 2: drop 메서드에 columns 키워드 추가 (열 단위 삭제 명시)
     if columns_to_drop:
-        df = df.drop(columns_to_drop).copy()
+        df = df.drop(columns=columns_to_drop).copy()
     else:
         df = df.copy()
 
     evaluation = df.apply(lambda row: evaluate_university_row(row, scores), axis=1)
     result = pd.concat([df.reset_index(drop=True), evaluation.reset_index(drop=True)], axis=1)
     result = result[result["추천유형"] != "자료부족"].copy()
-    result["영어판정"] = (result["영어70_등급"].apply(lambda grade: check_grade_subject(scores["영어"], grade)))
-    result["한국사판정"] = (result["한국사70_등급"].apply(lambda grade: check_grade_subject(scores["한국사"], grade)))
-    result["취약과목"] = (result.apply(lambda row: check_weak_subject(row, scores), axis=1))
+
+    result["영어판정"] = result["영어70_등급"].apply(lambda grade: check_grade_subject(scores["영어"], grade))
+    result["한국사판정"] = result["한국사70_등급"].apply(lambda grade: check_grade_subject(scores["한국사"], grade))
+    result["취약과목"] = result.apply(lambda row: check_weak_subject(row, scores), axis=1)
     result["절대점수차"] = result["점수차"].abs()
+
     inquiry_scores = {"높음": 3, "보통": 2, "별도확인": 1, "대학별 허용조건 확인": 0, "허용조건 확인": 0}
     result["탐구적합점수"] = result["탐구적합도"].map(inquiry_scores).fillna(0)
+
     result["추천우선순위"] = result["학과일치점수"] * 10 + result["탐구적합점수"] * 1 + result["대학비교입결"] * 0.15 - result["절대점수차"] * 1.2
     result = result.sort_values(by=["추천우선순위", "대학비교입결"], ascending=[False, False])
+
     return result
 
 
@@ -1011,7 +1115,7 @@ def split_recommendations(df):
 
     appropriate = df[df["추천유형"] == "적정"].copy()
 
-    downward = df[df["추천유형"] == "하햫"].copy()
+    downward = df[df["추천유형"] == "하향"].copy()
 
     return (upward, appropriate, downward)
 
@@ -1045,7 +1149,7 @@ def get_top_recommendations(df, limit=30):
     if df.empty:
         return df.copy()
 
-    top = df.sort_values(by=["대학비교입결", "하고가일치점수"], ascending=[False, False])
+    top = df.sort_values(by=["대학비교입결", "학과일치점수"], ascending=[False, False])
 
     top = diversify_universities(top, limit=limit, max_per_university=3)
 
@@ -1069,7 +1173,7 @@ def print_recommendations(title, data, limit=30):
         "영어판정", "취약과목", "경쟁률"
     ]
 
-    existing_columns = [column for column in columns if data.column]
+    existing_columns = [column for column in columns if column in data.columns]
 
     print(data[existing_columns].head(limit).to_string(index=False))
 
@@ -1121,7 +1225,7 @@ class UniversityRecommendationGUI:
         self.root = root
         self.root.title("정시대학추천시스템")
         self.root.geometry("1500x800")
-        self.root.minsise(1150, 650)
+        self.root.minsize(1150, 650)
         self.df = None
         self.all_results = None
         self.top_results = None
@@ -1135,10 +1239,10 @@ class UniversityRecommendationGUI:
         self.load_data_at_start()
 
     def create_widgets(self):
-        main_frame = tk.Frame(self.root, padding=15)
+        main_frame = ttk.Frame(self.root, padding=15)
 
         main_frame.pack(fill="both", expand=True)
-        title_label = ttk.label(main_frame, text="정시대학추천시스템", font=("Arial", 22, "bold"))
+        title_label = ttk.Label(main_frame, text="정시대학추천시스템", font=("Arial", 22, "bold"))
         title_label.pack(anchor="w")
 
         description_label = ttk.Label(
@@ -1210,7 +1314,7 @@ class UniversityRecommendationGUI:
             width=10
         ).grid(row=1, column=7, padx=5, pady=5)
 
-        ttk.label(input.frame, text="희망학과").grid(row=2, column=0, padx=5, pady=5)
+        ttk.Label(input_frame, text="희망학과").grid(row=2, column=0, padx=5, pady=5)
         self.major_var = tk.StringVar()
         ttk.Entry(input_frame, textvariable=self.major_var, width=25).grid(row=2, column=1, padx=5, pady=5, sticky="ew")
 
@@ -1250,7 +1354,7 @@ class UniversityRecommendationGUI:
 
         self.summary_var = tk.StringVar(value="입결데이터를 불러오는중 . . . . . ")
 
-        ttk.Label(summary_frame, textvariable=self.summary_var, justify="Left",
+        ttk.Label(summary_frame, textvariable=self.summary_var, justify="left",
                   font=("Arial", 11, "bold")).pack(anchor="w")
 
         self.notebook = ttk.Notebook(main_frame)
@@ -1344,8 +1448,8 @@ class UniversityRecommendationGUI:
 
     def load_data_at_start(self):
         try:
-            self.df = load_university_data
-            university_count = self.df["대학명"].nunique
+            self.df = load_university_data()
+            university_count = self.df["대학명"].nunique()
             self.summary_var.set(f"데이터 로드완료 \n"
                                  f"대학{university_count}개\n"
                                  f"성적을 입력한 뒤 \n"
@@ -1547,10 +1651,92 @@ class UniversityRecommendationGUI:
                 0
             )
 
+        except Exception as error:
+            messagebox.showerror(
+                "입력/계산 오류",
+                str(error)
+            )
+
+    def fill_tree(self, key, dataframe):
+        tree = self.trees[key]
+        for _, row in dataframe.iterrows():
+            values = []
+            for column in self.result_columns:
+                value = row.get(column, "")
+
+                if pd.isna(value):
+                    value = ""
+
+                elif isinstance(value, float):
+                    value = round(value, 2)
+
+                values.append(value)
+            tree.insert("", "end", values=values)
+
+    def clear_inputs(self):
+        self.korean_var.set("")
+        self.math_var.set("")
+        self.inquiry1_var.set("")
+        self.inquiry2_var.set("")
+        self.inquiry1_name_var.set("")
+        self.inquiry2_name_var.set("")
+        self.major_var.set("")
+        self.region_var.set("전체")
+
+    def save_results(self):
+        if self.all_results is None:
+            messagebox.showwarning("저장", "먼저 대학추천을 실행하시오.")
+
+            return
+        file_path = filedialog.asksaveasfilename(title="추처결과 excel 저장",
+                                                defaultextension="xlsx",
+                                                 filetypes=[("Excel 파일", "*.xlsx")],
+                                                 initialfile="대학추천결과.xlsx")
+        if not file_path:
+            return
+
+        try:
+            student_info = pd.DataFrame(
+                [
+                    {
+                        "국어백분위" : self.last_scores["국어"],
+                        "수학백분위" : self.last_scores["수학"],
+                        "탐구1과목" : self.last_scores["탐구1과목"],
+                        "탐구1백분위" : self.last_scores["탐구1"],
+                        "탐구2과목": self.last_scores["탐구2과목"],
+                        "탐구2백분위": self.last_scores["탐구2"],
+                        "영어등급" : self.last_scores["영어"],
+                        "희망학과" : self.last_scores["희망학과"] or "전체",
+                        "희망지역" : self.last_region
+                    }
+                ]
+            )
+
+            with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+
+                student_info.to_excel(writer, sheet_name="학생정보", index=False)
+                self.top_results.to_excel(writer, sheet_name="상위권 추천", index=False)
+                self.upward_results.to_excel(writer, sheet_name="상향", index=False)
+                self.appropriate_results.to_excel(writer, sheet_name="적정", index=False)
+                self.downward_results.to_excel(writer, sheet_name="하향", index=False)
+                self.all_results.to_excel(writer, sheet_name="전체 추천", index=False)
+
+            messagebox.showinfo(
+                "저장완료",
+                f"추천 결과가 저장되었습니다. \n\n"
+                f"{file_path}"
+            )
+        except PermissionError:
+            messagebox.showerror("저장 오류",
+                                 "같은 excel파일이 열려있습니다.\n",
+                                 "파일을 닫은 뒤 다시 실행하십시오")
+
+        except Exception as error:
+            messagebox.showerror("저장오류 ", str(error))
+
 
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = UniversityRecommendationGUI(root)
     root.mainloop()
-
